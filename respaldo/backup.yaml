@@ -1,0 +1,58 @@
+
+---
+# file: vms.yml
+- hosts: all
+  tasks:
+
+# Tests
+- name: Basic playbook run locally 
+  gather_facts: true 
+  hosts: all 
+  tasks: 
+    - name: Doing a ping
+      ping:
+
+    - name: Show info
+      debug:
+        msg: "Machine name: {{ ansible_hostname }}"
+
+Initial Backup Setup
+    - name: Initial volume configuration # initial storage volume config
+      become: true
+      tags: [ 'initial-backup-config' ]
+      block:
+
+        - name: Volume Group Create on top of disks # create pv and vg
+          community.general.lvg:
+            pvs: "{{ vg_devices }}" # pvcreate
+            vg: "{{ vg_name }}" # vgcreate
+
+        - name: Logical Volume Create of given size # Create lv
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            size: "{{ lv_size }}"
+
+        - name: FileSystem Create on the volume # Create fileSystem on lv
+          community.general.filesystem:
+            fstype: ext4
+            dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+        - name: Mount FileSystem to logical device # Create a mount point for that volume
+          ansible.posix.mount:
+            path: "{{ backup_base_dir }}"
+            src: "/dev/{{ vg_name }}/{{ lv_name }}"
+            fstype: ext4
+            state: mounted
+
+        - name: Create archive dir # first archive backup, note this dir is the same as snapshot just on the backup host
+          shell: |
+            mkdir -p {{ backup_base_dir }}{{ archive_base_dir }}
+
+        - name: Create snapshot directory # first archive backup, note this dir is the same as snapshot just on the backup host
+          shell: |
+            mkdir -p {{ backup_base_dir }}{{ snapshot_base_dir }}
+
+        - name: Ensure propper permissions on snapshots and archive dir # first archive backup, note this dir is the same as snapshot just on the backup host
+          shell: |
+            chown nobody: {{ backup_base_dir }} && chmod -R 777 {{ backup_base_dir }}

@@ -1,0 +1,216 @@
+---
+
+- name: playbook for simple 1 GB partition
+  hosts: all
+  become: true
+  tasks:
+
+    - name: backup prep
+      tags: [ 'backup-prep' ]
+      block: 
+
+        - name: Volume Group Create on top of disks # create pv and vg
+          community.general.lvg:
+            pvs: "{{ vg_devices }}" # pvc+reate
+            vg: "{{ vg_name }}" # vgcreate
+        
+        - name: Logical Volume Create of given size # Create lv
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            size: "{{ lv_size }}"
+
+        - name: FileSystem Create on the volume # Create fileSystem on lv
+          community.general.filesystem:
+            fstype: ext4
+            dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+        - name: Mount FileSystem to logical device # Create a mount point for that volume
+          ansible.posix.mount:
+            path: "{{ storage_dir }}"
+            src: "/dev/{{ vg_name }}/{{ lv_name }}"
+            fstype: ext4
+            state: mounted
+
+        - name: Ensure propper permissions to storage dir
+          shell: |
+            mkdir -p {{ storage_dir }} && chown nobody: {{ storage_dir }} && chmod -R 777 {{ storage_base_dir }}    
+
+################################### STORAGE ###################################
+
+# Initial Stroage Setup
+    # - name: Initial volume configuration # initial storage volume config
+    #   become: true
+    #   tags: [ 'initial-storage-config' ]
+    #   block:
+
+    #     - name: Volume Group Create on top of disks # create pv and vg
+    #       community.general.lvg:
+    #         pvs: "{{ vg_devices }}" # pvcreate
+    #         vg: "{{ vg_name }}" # vgcreate
+
+    #     - name: Logical Volume Create of given size # Create lv
+    #       community.general.lvol:
+    #         vg: "{{ vg_name }}"
+    #         lv: "{{ lv_name }}"
+    #         size: "{{ lv_size }}"
+
+    #     - name: FileSystem Create on the volume # Create fileSystem on lv
+    #       community.general.filesystem:
+    #         fstype: ext4
+    #         dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+    #     - name: Mount FileSystem to logical device # Create a mount point for that volume
+    #       ansible.posix.mount:
+    #         path: "{{ storage_dir }}"
+    #         src: "/dev/{{ vg_name }}/{{ lv_name }}"
+    #         fstype: ext4
+    #         state: mounted
+
+        - name: Ensure propper permissions to storage dir
+          shell: |
+            mkdir -p {{ storage_dir }} && chown nobody: {{ storage_dir }} && chmod -R 777 {{ storage_base_dir }}
+
+
+################################### ARCHIVE BACKUP ##############################
+
+# Archive Backup
+
+    - name: Archive Storage Backup # (optional) take-storage-snapshot, this should/will be set up with cron job automatically
+      become: true
+      tags: ['archive-storage-backup']
+      block:
+
+        - name: Archive the snapshot backup # first archive backup, note this dir is the same as snapshot just on the backup host
+          shell: |
+             tar zcf l10archive-$(date +%Y-%m-%d-%H-%M-%S-%Z).tar.gz -P {{ snapshot_base_dir }}
+#            tar zcf {{ backup_base_dir }}{{ archive_base_dir }}/l10archive-$(date +%Y-%m-%d-%H-%M-%S-%Z).tar.gz -P {{ backup_base_dir }}{{ snapshot_base_dir }}
+#            tar zcf l10backup/l10archive-$(date +%Y-%m-%d-%H-%M-%S-%Z).tar.gz -P /archived/srv/nfs
+            
+################################### STORAGE SNAPSHOT ############################
+
+# Take Stroage Snapshot
+    - name: Snapshot and Backup of storage # (optional) take-storage-snapshot, this should/will be set up with cron job automatically
+      tags: ['take-storage-snapshot']
+      block:
+
+        - name: Unmount Snaphsot # unmount snapshot filsesystems if any
+          become: true
+          ansible.posix.mount:
+            path: "{{ snapshot_dir }}"
+            src: "/dev/{{ vg_name }}/{{ snapshot_name }}"
+            fstype: ext4
+            state: unmounted
+
+        - name: Remove the snapshot logical volume # remove snapshot volume if any
+          become: true
+          lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ snapshot_name }}"
+            state: absent
+            force: yes
+
+        - name: Snapshot of Logical Volume Create # now create a new snapshot
+          become: true
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            size: "{{ lv_size }}"
+            snapshot: " {{ snapshot_name }}"
+
+        - name: Mount Snapshot to logical device # mount the snapshot to be able to rsync 
+          become: true
+          ansible.posix.mount:
+            path: "{{ snapshot_dir }}"
+            src: "/dev/{{ vg_name }}/{{ snapshot_name }}"
+            fstype: ext4
+            state: mounted
+
+        - name: Ensure propper permissions to snapshots dir
+          become: true
+          shell: |
+            mkdir -p {{ snapshot_dir }} && chown nobody: {{ snapshot_dir }} && chmod -R 777 {{ snapshot_base_dir }}
+
+        - name: rsync # then rsync to backup
+          tags: ['rsync']
+          shell: "rsync  -axr --delete {{ snapshot_dir }} {{ hostvars[item]['ansible_user'] }}@{{ hostvars[item]['ansible_host'] }}:{{ backup_base_dir }}{{ snapshot_base_dir }}"
+          with_items: 
+          - "{{ groups['backup'] }}"
+
+
+################################################ RESTORE ########################################################################
+
+# To Restore
+    - name: Restore from Snapshot # just note you already have a copy of latest snapshot on cold tier, so no need to take snapshot on hot tier
+      become: true
+      tags: [ 'restore-from-snapshot' ]
+      block:
+
+        - name: Unmount Snaphsot # unmount snapshot filsesystems if any
+          ansible.posix.mount:
+            path: "{{ snapshot_dir }}"
+            src: "/dev/{{ vg_name }}/{{ snapshot_name }}"
+            fstype: ext4
+            state: unmounted
+
+        - name: Umount Storage # unmount storage volume for immediate restore
+          ansible.posix.mount:
+            path: "{{ storage_dir }}"
+            state: unmounted
+
+        - name: Deactivate storage lv # manually deactivate and activate the lv to get the merge to start immediately
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            active: false
+
+        - name: Activate storage lv # manually deactivate and activate the lv to get the merge to start immediately
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            active: true
+
+        - name: Merge snapshot 
+          shell: "lvconvert --merge /dev/{{ vg_name }}/{{ snapshot_name }}"
+
+        - name: Mount storage lv # mount the snapshot to be able to rsync
+          ansible.posix.mount:
+            path: "{{ storage_dir }}"
+            src: "/dev/{{ vg_name }}/{{ lv_name }}"
+            fstype: ext4
+            state: mounted  
+
+################################### remove partitions #############################
+            
+# To Remove lv and vg # aka remove any pv from any machine
+    - name: Remove fs lv vg pv
+      become: true
+      tags: [ 'remove-fs-lv-vg-pv' ]
+      block:
+
+        - name: Umount Storage # unmount storage volume for immediate restore
+          ansible.posix.mount:
+            fstype: ext4
+            src: "/dev/{{ vg_name }}/{{ lv_name }}"
+            path: "{{ path_to_unmount }}"
+            state: unmounted
+
+        - name: Remove the logical volume. # Create lv
+          community.general.lvol:
+            vg: "{{ vg_name_to_remove }}"
+            lv: "{{ lv_name_to_remove }}"
+            state: absent
+            force: yes
+
+        - name: Remove a volume group
+          community.general.lvg:
+            vg: "{{ vg_name_to_remove }}"
+            state: absent # vgremove
+            force: yes
+
+        - name: Remove Physical Volumes
+          command: "pvremove -y {{ disks_to_wipe.split(',') | join(' ') }}"
+
+        - name: Wipe FS prior to unmounting # erase filesystem, raid or partition-table signatures
+          command: wipefs -af {{ disks_to_wipe.split(',') | join(' ') }}
+          

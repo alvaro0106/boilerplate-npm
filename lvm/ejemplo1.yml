@@ -1,0 +1,11 @@
+---
+- name: Copiar fichero etc hosts
+  hosts: all
+  #remote_user: lion10
+  become: True
+  tasks:
+   - name: copiar un fichero
+     copy: src=/etc/hosts dest=/home/
+     
+
+

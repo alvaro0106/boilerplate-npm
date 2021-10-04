@@ -1,0 +1,29 @@
+# To Remove lv and vg # aka remove any pv from any machine
+    - name: Remove fs lv vg pv
+      become: true
+      tags: [ 'remove-fs-lv-vg-pv' ]
+      block:
+
+        - name: Umount Storage # unmount storage volume for immediate restore
+          ansible.posix.mount:
+            path: "{{ path_to_unmount }}"
+            state: unmounted
+
+        - name: Remove the logical volume. # Create lv
+          community.general.lvol:
+            vg: "{{ vg_name_to_remove }}"
+            lv: "{{ lv_name_to_remove }}"
+            state: absent
+            force: yes
+
+        - name: Remove a volume group
+          community.general.lvg:
+            vg: "{{ vg_name_to_remove }}"
+            state: absent # vgremove
+            force: yes
+
+        - name: Remove Physical Volumes
+          command: "pvremove -y {{ disks_to_wipe.split(',') | join(' ') }}"
+
+        - name: Wipe FS prior to unmounting # erase filesystem, raid or partition-table signatures
+          command: wipefs -af {{ disks_to_wipe.split(',') | join(' ') }}

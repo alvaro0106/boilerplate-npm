@@ -1,0 +1,6 @@
+---
+- name: my task
+  hosts: all
+  tasks:
+   - name: Leaving a mark
+     command: "touch /tmp/ansible_was_here"10.73.199.13

@@ -1,0 +1,13 @@
+[storage]
+172.10.4.106 ansible_port=22 ansible_user=lion10 ansible_sudo_passLion2020
+
+[backup1]
+192.168.1.39 ansible_port=22 ansible_user=soporte ansible_sudo_pass=soporte
+
+[backup2]
+10.73.199.13 ansible_port=22 ansible_user=ubuntu
+
+[mass:children]
+storage
+backup1
+backup2

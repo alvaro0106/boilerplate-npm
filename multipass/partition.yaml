@@ -1,0 +1,11 @@
+- name: playbook for simple 1 GB partition
+  hosts: vm1.example.com
+  become: true
+  tasks:
+    - name: create partition
+      parted:
+        device: /dev/vdb
+        number: 1
+        flags: [ lvm ]
+        state: present
+        part_end: 2GB

@@ -1,0 +1,31 @@
+#[storage]
+#l10lab106 ansible_name 
+#172.10.4.106 ansible_name=l10lab106 ansible_port=22 ansible_user=l10u ansible_sudo_pass=Lion2020
+
+[multipass]
+10.73.199.13 ansible_user=ubuntu
+
+#[soporte]
+#hp_leon 
+#192.168.1.39 ansible_user=soporte ansible_sudo_pass=soporte
+
+[server]
+#leon 
+192.168.0.5 ansible_user=lion10 ansible_sudo_pass=Lion2020 ansible_port=22
+
+[lamp:children]
+multipass
+#soporte
+server
+
+[server:vars]
+vg_devices=/dev/sdd/,/dev/sde
+vg_name=l10_vol_grp1
+lv_name=l10_lvol1
+lv_size=10M
+vg_name=l10_vol_grp1
+lv_name=l10_lvol1
+backup_base_dir=/l10backup
+archive_base_dir=/archived
+backup_base_dir=/l10backup
+snapshot_base_dir=/mnt/nfs

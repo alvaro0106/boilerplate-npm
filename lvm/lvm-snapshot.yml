@@ -1,0 +1,9 @@
+---
+- name: Crear respaldo snapshot LVM
+  hosts: server
+  become: True
+  tasks:
+  - name: crealr Volumen Fisico
+    command: "pvcreate --size 1G --snapshot --name snap3 /dev/sdb"
+    #command: "pvdisplay"
+    #command: "mount /srv/nfs/kubedata /sda/sda5"

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>map</title>
+</head>
+<body>
+    <script>
+        pelicula1 = { titulo : "La monja", anio: 2021, valoracion: 5 }
+        pelicula2 = { titulo : "lo que sea", anio: 2000, valoracion: 10 }
+        pelicula3 = { titulo : "yo que se", anio: 2050, valoracion: 5 }
+        pelicula4 = { titulo : "Asi mero", anio: 2042, valoracion: 3 }
+        pelicula5 = { titulo : "ya estas", anio: 2011, valoracion: 9 }
+
+        peliculas = [pelicula1, pelicula2, pelicula3, pelicula4, pelicula5]
+
+        let nuevoObjeto = ({valoracion}) => {
+            valoracion >= 5 ? valoracion += 1: valoracion +=0
+            let objeto = {}
+            objeto["valoracion"] = valoracion
+            return objeto
+        }
+
+        let miNuevaValoracion = peliculas.map(nuevoObjeto)
+        console.log(peliculas)
+        console.log(miNuevaValoracion)
+
+
+
+        let reducirValoracion = (acum, {valoracion}) => acum + valoracion
+
+        let miTotalValoracion = peliculas.reduce(reducirValoracion,0)
+
+        console.log(miTotalValoracion)
+
+        let sumaValoracion = ({valoracion}) => valoracion >= 5 ? valoracion += 1: valoracion +=0
+
+        let valorado = peliculas.map(sumaValoracion)
+
+        console.log(valorado)
+
+    </script>
+
+</body>
+</html>

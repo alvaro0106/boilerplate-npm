@@ -1,0 +1,34 @@
+- name: Crear fichero usuando variables
+  hosts: localhost
+  connection: local
+  vars:
+    - miip: "192.168.1.100"
+    - milista: ["apache2","mariadb","php5"]
+    - milista_larga: 
+        - apache2
+        - mariadb
+        - php5
+    - midic: {web: "apache2", db: "mariabd", script: "php5"}
+    - midic_largo:
+         - web: apache2
+         - db: mariadb
+         - script: php5
+    - mitexto: | 
+           primera linea
+           segunda linea
+           tercera linea
+    - milienalarga: > 
+           Inicio linea   
+           continuacion linea
+           final de linea
+
+  tasks: 
+    - name: crear ficheros hosts
+      template: src=hosts.j2 dest=/tmp/hosts owner=root group=root mode=0644
+    - name: crear ficheros hosts
+      template: 
+        src: hosts.j2 
+        dest: /tmp/hosts 
+        owner: root 
+        group: root 
+        mode: 0644

@@ -1,0 +1,45 @@
+[storage]
+#l10lab106 ansible_name 
+172.10.4.106 ansible_name=l10lab106 ansible_port=22 ansible_user=l10u ansible_sudo_pass=Lion2020
+
+[multipass]
+#kvm_multipass 
+10.73.199.13 ansible_user=ubuntu
+
+#[soporte]
+#hp_leon 
+#192.168.1.39 ansible_user=soporte
+
+#[server]
+#leon 
+#192.168.0.5 ansible_user=lion10 ansible_sudo_pass=Lion2020
+
+[lamp:children]
+storage
+multipass
+
+[storage:vars]
+ansible_user=l10u
+vg_devices=/dev/sdb,/dev/sdc
+vg_name=l10_vol_grp1
+lv_name=l10_lvol1
+lv_size=10g
+path_to_unmount=/dev/l10_vol_grp1/l10_lvol1
+#path_to_unmount=/mnt/nfs/kubedata
+vg_name_to_remove=l10_vol_grp1
+lv_name_to_remove=l10_lvol1
+disks_to_wipe=/dev/sdb
+#disks_to_wipe=/dev/sdc
+storage_dir=/srv/nfs/kubedata
+storage_base_dir=/srv/nfs
+backup_base_dir=/l10backup
+archvg_nameive_base_dir=/archived
+snapshot_base_dir=/srv/nfs
+snapshot_dir=/mnt/nfs/kubedata
+snapshot_name=l10_snap1
+archive_base_dir=/archived
+path_to_unmount=/dev/mapper/l10_vol_grp1
+
+#k8s_nfs_script=3-nfs-setup-ubuntu.sh
+#dest_configfiles_path=/home/l10u
+#storage_ipv4=172.10.4.105

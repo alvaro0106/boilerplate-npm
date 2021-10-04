@@ -1,0 +1,37 @@
+---
+
+- name: playbook for simple 1 GB partition
+  hosts: all
+  become: true
+  tasks:
+
+    - name: backup prep
+      tags: [ 'backup-prep' ]
+      block: 
+
+        - name: Volume Group Create on top of disks # create pv and vg
+          community.general.lvg:
+            pvs: "{{ vg_devices }}" # pvc+reate
+            vg: "{{ vg_name }}" # vgcreate
+        
+        - name: Logical Volume Create of given size # Create lv
+          community.general.lvol:
+            vg: "{{ vg_name }}"
+            lv: "{{ lv_name }}"
+            size: "{{ lv_size }}"
+
+        - name: FileSystem Create on the volume # Create fileSystem on lv
+          community.general.filesystem:
+            fstype: ext4
+            dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+        - name: Mount FileSystem to logical device # Create a mount point for that volume
+          ansible.posix.mount:
+            path: "{{ storage_dir }}"
+            src: "/dev/{{ vg_name }}/{{ lv_name }}"
+            fstype: ext4
+            state: mounted
+
+        - name: Ensure propper permissions to storage dir
+          shell: |
+            mkdir -p {{ storage_dir }} && chown nobody: {{ storage_dir }} && chmod -R 777 {{ storage_base_dir }}
